@@ -2,12 +2,9 @@
 
 namespace App\Services;
 
-use App\Http\Requests\CustomerCreateRequest;
 use App\Models\Customer;
 use App\Repositories\CustomerRepository;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Exception;
 
 class CustomerService
 {
@@ -21,13 +18,17 @@ class CustomerService
     }
 
     /**
+     * @param int $page ,
+     * @param int $perPage
      * @return array
      */
-    public function getAllCustomers(): array
+    public function getAllCustomers(int $page, int $perPage): array
     {
-        $customers = $this->customerRepository->getCustomers();
+        $customers = $this->customerRepository->getAll($page, $perPage);
+
         return $this->getCustomerMap($customers);
     }
+
 
     /**
      * @param $customers
@@ -35,39 +36,36 @@ class CustomerService
      */
     private function getCustomerMap($customers): array
     {
-        return $customers->map(function ($customer) {
-            return [
-                'id' => $customer->id,
-                'name' => $customer->name,
-                'since' => $customer->since,
-                'revenue' => number_format($customer->revenue, 2),
-            ];
-        })->toArray();
+        return [
+            'data' => $customers->map(function ($customer) {
+                return [
+                    'id' => $customer->id,
+                    'name' => $customer->name,
+                    'since' => $customer->since,
+                    'revenue' => number_format($customer->revenue, 2),
+                ];
+            })->toArray(),
+            'meta' => [
+                'current_page' => $customers->currentPage(),
+                'per_page' => $customers->perPage(),
+                'total' => $customers->total(),
+                'last_page' => $customers->lastPage(),
+            ]
+        ];
     }
+
 
     /**
      * @param array $request
      * @return Customer
-     * @throws Exception
      */
     public function handleCreateCustomer(array $request): Customer
     {
-        DB::beginTransaction();
-        try {
-            $customer = $this->customerRepository->create([
-                'name' => $request['name'],
-                'since' => $request['since'],
-                'revenue' => $request['revenue'],
-            ]);
-
-            DB::commit();
-
-            return $customer;
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Customer creation failed', ['error' => $e->getMessage()]);
-            throw new Exception("Müşteri oluşturulamadı." . $e->getMessage());
-        }
+        return $this->customerRepository->create([
+            'name' => $request['name'],
+            'since' => $request['since'],
+            'revenue' => $request['revenue'],
+        ]);
     }
 
     /**
@@ -76,14 +74,7 @@ class CustomerService
      */
     public function handleDeleteCustomer(int $id): bool
     {
-        $customerDelete = $this->customerRepository->delete($id);
-
-        if (!$customerDelete) {
-            Log::error('Customer delete failed', ['error' => 'Customer not found', 'customer_id' => $id]);
-            return false;
-        }
-
-        return true;
+        return $this->customerRepository->delete($id);
     }
 
 }

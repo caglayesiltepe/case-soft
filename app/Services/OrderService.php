@@ -9,7 +9,6 @@ use App\Repositories\OrderRepository;
 use App\Repositories\OrderItemRepository;
 use App\Repositories\ProductRepository;
 use Exception;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class OrderService
@@ -42,35 +41,20 @@ class OrderService
      */
     public function handleCreateOrder(array $request): Order
     {
-        DB::beginTransaction();
+        $customerId = $request['customer_id'];
+        $items = $request['items'];
+        $customer = $this->validateCustomer($customerId);
+        $this->validateStock($items);
 
-        try {
-            $customerId = $request['customer_id'];
-            $items = $request['items'];
-            $customer = $this->validateCustomer($customerId);
-            $this->validateStock($items);
+        $order = $this->createNewOrder([
+            'customer_id' => $customerId,
+            'total' => 0
+        ]);
 
-            $order = $this->createNewOrder([
-                'customer_id' => $customerId,
-                'total' => 0
-            ]);
+        $this->createOrderItemsAndUpdateStock($order, $items);
+        $this->applyDiscountAndUpdateRevenue($order, $customer);
 
-            $this->createOrderItemsAndUpdateStock($order, $items);
-            $this->applyDiscountAndUpdateRevenue($order, $customer);
-
-            DB::commit();
-
-            return $order;
-
-        } catch (Exception $e) {
-            DB::rollBack();
-            Log::error('Order creation failed', [
-                'error' => $e->getMessage(),
-                'customer_id' => $customerId,
-                'items' => $items
-            ]);
-            throw new Exception("Sipariş oluşturulamadı. " . $e->getMessage());
-        }
+        return $order;
     }
 
     /**
@@ -129,34 +113,29 @@ class OrderService
      */
     private function createOrderItemsAndUpdateStock(Order $order, array $items): void
     {
-        try {
-            foreach ($items as $item) {
-                $product = $this->productRepository->findById($item['product_id']);
-                if (!$product) {
-                    throw new Exception("Ürün bulunamadı.");
-                }
-
-                $itemTotal = $product->price * $item['quantity'];
-
-                $order->total += $itemTotal;
-
-                $this->createNewOrderItem([
-                    'order_id' => $order->id,
-                    'product_id' => $item['product_id'],
-                    'quantity' => $item['quantity'],
-                    'unit_price' => $product->price,
-                    'total' => $itemTotal,
-                ]);
-
-                $product->stock -= $item['quantity'];
-                $product->save();
+        foreach ($items as $item) {
+            $product = $this->productRepository->findById($item['product_id']);
+            if (!$product) {
+                throw new Exception("Ürün bulunamadı.");
             }
 
-            $order->save();
-        } catch (Exception $e) {
-            throw new Exception('Sipariş öğeleri oluşturulamadı: ' . $e->getMessage());
+            $itemTotal = $product->price * $item['quantity'];
+
+            $order->total += $itemTotal;
+
+            $this->createNewOrderItem([
+                'order_id' => $order->id,
+                'product_id' => $item['product_id'],
+                'quantity' => $item['quantity'],
+                'unit_price' => $product->price,
+                'total' => $itemTotal,
+            ]);
+
+            $product->stock -= $item['quantity'];
+            $product->save();
         }
 
+        $order->save();
     }
 
     /**
@@ -191,11 +170,13 @@ class OrderService
 
 
     /**
+     * @param int $page
+     * @param int $perPage
      * @return array
      */
-    public function getAllOrders(): array
+    public function getAllOrders(int $page, int $perPage): array
     {
-        $orders = $this->orderRepository->getOrders();
+        $orders = $this->orderRepository->getAll($page, $perPage);
         return $this->getOrderMap($orders);
     }
 
@@ -205,25 +186,33 @@ class OrderService
      */
     private function getOrderMap($orders): array
     {
-        return $orders->map(function ($order) {
-            return [
-                'id' => $order->id,
-                'customerId' => $order->customer_id,
-                'items' => $order->items->map(function ($item) {
-                    return [
-                        'productId' => $item->product_id,
-                        'quantity' => $item->quantity,
-                        'unitPrice' => number_format($item->unit_price, 2),
-                        'total' => number_format($item->total, 2),
-                        'discountAmount' => number_format($item->discount_amount, 2),
-                        'discountedTotal' => number_format($item->discounted_total, 2),
-                    ];
-                }),
-                'total' => number_format($order->total, 2),
-                'totalDiscount' => number_format($order->total_discount, 2),
-                'discountedTotal' => number_format($order->discounted_total, 2),
-            ];
-        })->toArray();
+        return [
+            'data' => $orders->map(function ($order) {
+                return [
+                    'id' => $order->id,
+                    'customerId' => $order->customer_id,
+                    'items' => $order->items->map(function ($item) {
+                        return [
+                            'productId' => $item->product_id,
+                            'quantity' => $item->quantity,
+                            'unitPrice' => number_format($item->unit_price, 2),
+                            'total' => number_format($item->total, 2),
+                            'discountAmount' => number_format($item->discount_amount, 2),
+                            'discountedTotal' => number_format($item->discounted_total, 2),
+                        ];
+                    }),
+                    'total' => number_format($order->total, 2),
+                    'totalDiscount' => number_format($order->total_discount, 2),
+                    'discountedTotal' => number_format($order->discounted_total, 2),
+                ];
+            })->toArray(),
+            'meta' => [
+                'current_page' => $orders->currentPage(),
+                'per_page' => $orders->perPage(),
+                'total' => $orders->total(),
+                'last_page' => $orders->lastPage(),
+            ]
+        ];
     }
 
     /**
@@ -232,15 +221,7 @@ class OrderService
      */
     public function handleDeleteOrder(int $id): bool
     {
-        $orderDelete = $this->orderRepository->delete($id);
-
-        if (!$orderDelete) {
-            Log::error('Order delete failed', ['error' => 'Order not found', 'order_id' => $id]);
-
-            return false;
-        }
-
-        return true;
+        return $this->orderRepository->delete($id);
     }
 
 }

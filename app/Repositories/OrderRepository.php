@@ -2,10 +2,14 @@
 
 namespace App\Repositories;
 
+use App\Interfaces\CreateInterface;
+use App\Interfaces\DeleteInterface;
+use App\Interfaces\FindInterface;
+use App\Interfaces\GetAllInterface;
 use App\Models\Order;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 
-class OrderRepository
+class OrderRepository implements CreateInterface, DeleteInterface, GetAllInterface, FindInterface
 {
     /**
      * @param array $data
@@ -18,11 +22,13 @@ class OrderRepository
 
 
     /**
-     * @return Collection
+     * @param int $page
+     * @param int $perPage
+     * @return LengthAwarePaginator
      */
-    public function getOrders(): Collection
+    public function getAll(int $page, int $perPage): LengthAwarePaginator
     {
-        return Order::all();
+        return Order::paginate($perPage, ['*'], 'page', $page);
     }
 
     /**
@@ -42,12 +48,6 @@ class OrderRepository
     {
         $order = Order::find($id);
 
-        if (!$order) {
-            return false;
-        }
-
-        $order->delete();
-
-        return true;
+        return $order->delete();
     }
 }

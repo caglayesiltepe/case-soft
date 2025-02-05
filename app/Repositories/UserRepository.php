@@ -2,9 +2,10 @@
 
 namespace App\Repositories;
 
+use App\Interfaces\CreateInterface;
 use App\Models\User;
 
-class UserRepository
+class UserRepository implements CreateInterface
 {
     /**
      * @param array $data

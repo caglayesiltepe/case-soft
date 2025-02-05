@@ -6,6 +6,9 @@ use App\Http\Requests\OrderCreateRequest;
 use App\Services\OrderService;
 use Exception;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
@@ -28,31 +31,48 @@ class OrderController extends Controller
      *      operationId="getAllOrders",
      *      tags={"Order"},
      *      summary="Get all orders",
-     *      description="Fetches a list of all orders.",
+     *      description="Fetches a paginated list of all orders.",
      *      security={{"bearerAuth":{}}},
+     *      @OA\Parameter(
+     *          name="page",
+     *          in="query",
+     *          description="Page number",
+     *          required=false,
+     *          @OA\Schema(type="integer", default=1)
+     *      ),
+     *      @OA\Parameter(
+     *          name="perPage",
+     *          in="query",
+     *          description="Orders per page",
+     *          required=false,
+     *          @OA\Schema(type="integer", default=10)
+     *      ),
      *      @OA\Response(
      *          response=200,
      *          description="List of orders",
      *          @OA\JsonContent(
-     *              type="array",
-     *              @OA\Items(
-     *                  type="object",
-     *                  @OA\Property(property="id", type="integer", example=1),
-     *                  @OA\Property(property="customer_id", type="integer", example=123),
-     *                  @OA\Property(property="items", type="array",
-     *                      @OA\Items(
-     *                          type="object",
-     *                          @OA\Property(property="productId", type="integer", example=100),
-     *                          @OA\Property(property="quantity", type="integer", example=2),
-     *                          @OA\Property(property="unitPrice", type="string", example="10.50"),
-     *                          @OA\Property(property="total", type="string", example="21.00"),
-     *                          @OA\Property(property="discountAmount", type="string", example="2.00"),
-     *                          @OA\Property(property="discountedTotal", type="string", example="19.00")
-     *                      )
-     *                  ),
-     *                  @OA\Property(property="total", type="number", format="float", example=250.50),
-     *                  @OA\Property(property="totalDiscount", type="number", format="float", example=0.00),
-     *                  @OA\Property(property="discountedTotal", type="number", format="float", example=0.00),
+     *              type="object",
+     *              @OA\Property(property="current_page", type="integer", example=1),
+     *              @OA\Property(property="data", type="array",
+     *                  @OA\Items(
+     *                      type="object",
+     *                      @OA\Property(property="id", type="integer", example=1),
+     *                      @OA\Property(property="customer_id", type="integer", example=123),
+     *                      @OA\Property(property="items", type="array",
+     *                       @OA\Items(
+     *                           type="object",
+     *                           @OA\Property(property="productId", type="integer", example=100),
+     *                           @OA\Property(property="quantity", type="integer", example=2),
+     *                           @OA\Property(property="unitPrice", type="string", example="10.50"),
+     *                           @OA\Property(property="total", type="string", example="21.00"),
+     *                           @OA\Property(property="discountAmount", type="string", example="2.00"),
+     *                           @OA\Property(property="discountedTotal", type="string", example="19.00")
+     *                       )
+     *                   ),
+     *                      @OA\Property(property="total", type="number", format="float", example=250.50),
+     *                      @OA\Property(property="totalDiscount", type="number", format="float", example=0.00),
+     *                      @OA\Property(property="discountedTotal", type="number", format="float", example=0.00)
+     *                  )
      *              )
      *          )
      *      ),
@@ -64,21 +84,27 @@ class OrderController extends Controller
      *          )
      *      )
      *  )
+     * @param Request $request
      * @return JsonResponse
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         try {
-            $orders = $this->orderService->getAllOrders();
+            $page = $request->get('page', 1);
+            $perPage = $request->get('perPage', 10);
+
+            $orders = $this->orderService->getAllOrders($page, $perPage);
+
             if (empty($orders)) {
                 return response()->json(['error' => "Siparişler bulunamadı"], 404);
             }
-            return response()->json($orders, 200);
 
+            return response()->json($orders, 200);
         } catch (Exception $e) {
             return response()->json(['error' => $e->getMessage()], 404);
         }
     }
+
 
     /**
      * @OA\Post(
@@ -130,14 +156,19 @@ class OrderController extends Controller
         if (!$request->isMethod('post')) {
             return response()->json(['error' => 'Method Not Allowed'], 405);
         }
-
+        DB::beginTransaction();
         try {
             $order = $this->orderService->handleCreateOrder($request->validated());
+            DB::commit();
             return response()->json([
                 'message' => 'Siparişiniz başarıyla oluşturulmuştur.',
                 'order_id' => $order->id,
             ], 200);
         } catch (Exception $e) {
+            DB::rollBack();
+            Log::error('Order creation failed', [
+                'error' => $e->getMessage()
+            ]);
             return response()->json(['error' => 'Order creation failed', 'message' => $e->getMessage()], 422);
         }
     }
@@ -182,6 +213,7 @@ class OrderController extends Controller
             if ($this->orderService->handleDeleteOrder($id)) {
                 return response()->json(['message' => 'Sipariş silindi']);
             }
+            Log::error('Order delete failed', ['error' => 'Order not found', 'order_id' => $id]);
             return response()->json(['message' => 'Sipariş Bulunamadı'], 404);
 
         } catch (Exception $e) {

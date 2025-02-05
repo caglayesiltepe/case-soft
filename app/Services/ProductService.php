@@ -4,8 +4,6 @@ namespace App\Services;
 
 use App\Models\Product;
 use App\Repositories\ProductRepository;
-use Exception;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ProductService
@@ -26,11 +24,14 @@ class ProductService
     }
 
     /**
+     * @param int $page ,
+     * @param int $perPage
      * @return array
      */
-    public function getAllProducts(): array
+    public function getAllProducts(int $page, int $perPage): array
     {
-        $products = $this->productRepository->getProducts();
+        $products = $this->productRepository->getAll($page, $perPage);
+
         return $this->getProductMap($products);
     }
 
@@ -40,41 +41,37 @@ class ProductService
      */
     private function getProductMap($products): array
     {
-        return $products->map(function ($product) {
-            return [
-                'id' => $product->id,
-                'name' => $product->name,
-                'category' => $product->category,
-                'price' => number_format($product->price, 2),
-                'stock' => $product->stock,
-            ];
-        })->toArray();
+        return [
+            'data' => $products->map(function ($product) {
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'category' => $product->category,
+                    'price' => number_format($product->price, 2),
+                    'stock' => $product->stock,
+                ];
+            })->toArray(),
+            'meta' => [
+                'current_page' => $products->currentPage(),
+                'per_page' => $products->perPage(),
+                'total' => $products->total(),
+                'last_page' => $products->lastPage(),
+            ]
+        ];
     }
 
     /**
      * @param array $request
      * @return Product
-     * @throws Exception
      */
     public function productCreate(array $request): Product
     {
-        DB::beginTransaction();
-        try {
-            $product = $this->productRepository->create([
-                'name' => $request['name'],
-                'category' => $request['category'],
-                'stock' => $request['stock'],
-                'price' => $request['price'],
-            ]);
-
-            DB::commit();
-
-            return $product;
-        } catch (Exception $e) {
-            DB::rollBack();
-            Log::error('Product creation failed', ['error' => $e->getMessage()]);
-            throw new Exception('Ürün oluşturulamadı'. $e->getMessage());
-        }
+        return $this->productRepository->create([
+            'name' => $request['name'],
+            'category' => $request['category'],
+            'stock' => $request['stock'],
+            'price' => $request['price'],
+        ]);
     }
 
     /**
@@ -83,13 +80,6 @@ class ProductService
      */
     public function deleteProduct(int $id): bool
     {
-        $productDelete = $this->productRepository->delete($id);
-
-        if (!$productDelete) {
-            Log::error('Product delete failed', ['error' => 'Product not found', 'product_id' => $id]);
-            return false;
-        }
-
-        return true;
+        return $this->productRepository->delete($id);
     }
 }

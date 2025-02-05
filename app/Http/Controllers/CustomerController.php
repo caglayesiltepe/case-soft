@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Requests\CustomerCreateRequest;
 use App\Services\CustomerService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CustomerController extends Controller
 {
@@ -27,20 +30,40 @@ class CustomerController extends Controller
      *      operationId="getCustomerAll",
      *      tags={"Customer"},
      *      summary="Get all customers",
-     *      description="Fetches a list of all customers.",
+     *      description="Fetches a list of all customers with pagination.",
      *      security={{"bearerAuth":{}}},
+     *      @OA\Parameter(
+     *          name="page",
+     *          in="query",
+     *          description="Page number",
+     *          required=false,
+     *          @OA\Schema(type="integer", example=1)
+     *      ),
+     *      @OA\Parameter(
+     *          name="per_page",
+     *          in="query",
+     *          description="Number of items per page",
+     *          required=false,
+     *          @OA\Schema(type="integer", example=10)
+     *      ),
      *      @OA\Response(
      *          response=200,
-     *          description="List of customers",
+     *          description="List of customers with pagination",
      *          @OA\JsonContent(
-     *              type="array",
-     *              @OA\Items(
-     *                  type="object",
-     *                  @OA\Property(property="id", type="integer", example=1),
-     *                  @OA\Property(property="name", type="string", example="Irmak"),
-     *                  @OA\Property(property="since", type="date", example="2025-01-01"),
-     *                  @OA\Property(property="revenue", type="number", format="float", example=250.50),
-     *              )
+     *              type="object",
+     *              @OA\Property(property="current_page", type="integer", example=1),
+     *              @OA\Property(property="data", type="array",
+     *                  @OA\Items(
+     *                      type="object",
+     *                      @OA\Property(property="id", type="integer", example=1),
+     *                      @OA\Property(property="name", type="string", example="Irmak"),
+     *                      @OA\Property(property="since", type="date", example="2025-01-01"),
+     *                      @OA\Property(property="revenue", type="number", format="float", example=250.50),
+     *                  )
+     *              ),
+     *              @OA\Property(property="total", type="integer", example=100),
+     *              @OA\Property(property="per_page", type="integer", example=10),
+     *              @OA\Property(property="last_page", type="integer", example=10)
      *          )
      *      ),
      *      @OA\Response(
@@ -51,20 +74,27 @@ class CustomerController extends Controller
      *          )
      *      )
      *  )
+     * @param Request $request
      * @return JsonResponse
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         try {
-            $customers = $this->customerService->getAllCustomers();
+            $page = $request->get('page', 1);
+            $perPage = $request->get('per_page', 10);
+
+            $customers = $this->customerService->getAllCustomers($page, $perPage);
+
             if (empty($customers)) {
                 return response()->json(['error' => "Müşteriler bulunamadı"], 404);
             }
+
             return response()->json($customers, 200);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 404);
         }
     }
+
 
     /**
      * @OA\Post(
@@ -109,13 +139,20 @@ class CustomerController extends Controller
             return response()->json(['error' => 'Method Not Allowed'], 405);
         }
 
+        DB::beginTransaction();
+
         try {
             $customer = $this->customerService->handleCreateCustomer($request->validated());
+
+            DB::commit();
+
             return response()->json([
                 'message' => 'Müşteri başarıyla oluşturulmuştur.',
                 'customer_id' => $customer->id
             ], 200);
         } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Customer creation failed', ['error' => $e->getMessage()]);
             return response()->json(['error' => 'Customer creation failed', 'message' => $e->getMessage()], 422);
         }
     }
@@ -160,6 +197,7 @@ class CustomerController extends Controller
                 return response()->json(['message' => 'Müşteri silindi.']);
             }
 
+            Log::error('Customer delete failed', ['error' => 'Customer not found', 'customer_id' => $id]);
             return response()->json(['error' => 'Müşteri bulunamadı.'], 404);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 404);

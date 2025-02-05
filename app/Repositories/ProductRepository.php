@@ -2,10 +2,14 @@
 
 namespace App\Repositories;
 
+use App\Interfaces\CreateInterface;
+use App\Interfaces\DeleteInterface;
+use App\Interfaces\FindInterface;
+use App\Interfaces\GetAllInterface;
 use App\Models\Product;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 
-class ProductRepository
+class ProductRepository implements CreateInterface, DeleteInterface, FindInterface, GetAllInterface
 {
     /**
      * @param int $id
@@ -17,11 +21,13 @@ class ProductRepository
     }
 
     /**
-     * @return Collection
+     * @param int $page
+     * @param int $perPage
+     * @return LengthAwarePaginator
      */
-    public function getProducts():Collection
+    public function getAll(int $page, int $perPage): LengthAwarePaginator
     {
-        return Product::all();
+        return Product::paginate($perPage, ['*'], 'page', $page);
     }
 
     /**
@@ -41,12 +47,6 @@ class ProductRepository
     {
         $product = Product::find($id);
 
-        if (!$product) {
-            return false;
-        }
-
-        $product->delete();
-
-        return true;
+        return $product->delete();
     }
 }

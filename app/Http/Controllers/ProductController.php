@@ -6,6 +6,9 @@ use App\Http\Requests\ProductCreateRequest;
 use App\Services\ProductService;
 use Exception;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
@@ -28,8 +31,22 @@ class ProductController extends Controller
      *       operationId="getAllProducts",
      *       tags={"Product"},
      *       summary="Get all products",
-     *       description="Fetches a list of all products.",
+     *       description="Fetches a list of all products with pagination.",
      *       security={{"bearerAuth":{}}},
+     *     @OA\Parameter(
+     *           name="page",
+     *           in="query",
+     *           description="Page number",
+     *           required=false,
+     *           @OA\Schema(type="integer", example=1)
+     *       ),
+     *       @OA\Parameter(
+     *           name="per_page",
+     *           in="query",
+     *           description="Number of items per page",
+     *           required=false,
+     *           @OA\Schema(type="integer", example=10)
+     *       ),
      *       @OA\Response(
      *           response=200,
      *           description="List of products",
@@ -42,7 +59,10 @@ class ProductController extends Controller
      *                   @OA\Property(property="category", type="number", example=1),
      *                   @OA\Property(property="price", type="number", format="float", example=10.00),
      *                   @OA\Property(property="stock", type="number" ,example=10)
-     *               )
+     *               ),
+     *               @OA\Property(property="total", type="integer", example=100),
+     *               @OA\Property(property="per_page", type="integer", example=10),
+     *               @OA\Property(property="last_page", type="integer", example=10)
      *           )
      *       ),
      *       @OA\Response(
@@ -53,12 +73,17 @@ class ProductController extends Controller
      *           )
      *       )
      *   )
+     *
+     * @param Request $request
      * @return JsonResponse
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         try {
-            $product = $this->productService->getAllProducts();
+            $page = $request->get('page', 1);
+            $perPage = $request->get('per_page', 10);
+
+            $product = $this->productService->getAllProducts($page, $perPage);
             if (empty($product)) {
                 return response()->json(['error' => "Ürünler bulunamadı"], 404);
             }
@@ -125,15 +150,17 @@ class ProductController extends Controller
         if (!$request->isMethod('post')) {
             return response()->json(['error' => 'Method Not Allowed'], 405);
         }
-
+        DB::beginTransaction();
         try {
             $product = $this->productService->productCreate($request->validated());
-
+            DB::commit();
             return response()->json([
                 'message' => 'Ürün başarıyla oluşturulmuştur.',
                 'data' => $product->toArray()
             ], 200);
         } catch (Exception $e) {
+            DB::rollBack();
+            Log::error('Product creation failed', ['error' => $e->getMessage()]);
             throw new Exception('Product creation failed' . $e->getMessage());
         }
     }
@@ -178,6 +205,8 @@ class ProductController extends Controller
             if ($this->productService->deleteProduct($id)) {
                 return response()->json(['message' => 'Ürün silindi']);
             }
+
+            Log::error('Product delete failed', ['error' => 'Product not found', 'product_id' => $id]);
             return response()->json(['message' => 'Ürün bulunamadı'], 404);
         } catch (Exception $e) {
             return response()->json(['error' => $e->getMessage()], 404);

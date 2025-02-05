@@ -299,38 +299,81 @@
                     "Customer"
                 ],
                 "summary": "Get all customers",
-                "description": "Fetches a list of all customers.",
+                "description": "Fetches a list of all customers with pagination.",
                 "operationId": "getCustomerAll",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page number",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Number of items per page",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "List of customers",
+                        "description": "List of customers with pagination",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "properties": {
-                                            "id": {
-                                                "type": "integer",
-                                                "example": 1
-                                            },
-                                            "name": {
-                                                "type": "string",
-                                                "example": "Irmak"
-                                            },
-                                            "since": {
-                                                "type": "string",
-                                                "format": "date",
-                                                "example": "2025-01-01"
-                                            },
-                                            "revenue": {
-                                                "type": "number",
-                                                "format": "float",
-                                                "example": 250.5
+                                    "properties": {
+                                        "current_page": {
+                                            "type": "integer",
+                                            "example": 1
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "name": {
+                                                        "type": "string",
+                                                        "example": "Irmak"
+                                                    },
+                                                    "since": {
+                                                        "type": "string",
+                                                        "format": "date",
+                                                        "example": "2025-01-01"
+                                                    },
+                                                    "revenue": {
+                                                        "type": "number",
+                                                        "format": "float",
+                                                        "example": 250.5
+                                                    }
+                                                },
+                                                "type": "object"
                                             }
                                         },
-                                        "type": "object"
-                                    }
+                                        "total": {
+                                            "type": "integer",
+                                            "example": 100
+                                        },
+                                        "per_page": {
+                                            "type": "integer",
+                                            "example": 10
+                                        },
+                                        "last_page": {
+                                            "type": "integer",
+                                            "example": 10
+                                        }
+                                    },
+                                    "type": "object"
                                 }
                             }
                         }
@@ -590,75 +633,106 @@
                     "Order"
                 ],
                 "summary": "Get all orders",
-                "description": "Fetches a list of all orders.",
+                "description": "Fetches a paginated list of all orders.",
                 "operationId": "getAllOrders",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page number",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "perPage",
+                        "in": "query",
+                        "description": "Orders per page",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 10
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "List of orders",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "properties": {
-                                            "id": {
-                                                "type": "integer",
-                                                "example": 1
-                                            },
-                                            "customer_id": {
-                                                "type": "integer",
-                                                "example": 123
-                                            },
+                                    "properties": {
+                                        "current_page": {
+                                            "type": "integer",
+                                            "example": 1
+                                        },
+                                        "data": {
+                                            "type": "array",
                                             "items": {
-                                                "type": "array",
-                                                "items": {
-                                                    "properties": {
-                                                        "productId": {
-                                                            "type": "integer",
-                                                            "example": 100
-                                                        },
-                                                        "quantity": {
-                                                            "type": "integer",
-                                                            "example": 2
-                                                        },
-                                                        "unitPrice": {
-                                                            "type": "string",
-                                                            "example": "10.50"
-                                                        },
-                                                        "total": {
-                                                            "type": "string",
-                                                            "example": "21.00"
-                                                        },
-                                                        "discountAmount": {
-                                                            "type": "string",
-                                                            "example": "2.00"
-                                                        },
-                                                        "discountedTotal": {
-                                                            "type": "string",
-                                                            "example": "19.00"
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "customer_id": {
+                                                        "type": "integer",
+                                                        "example": 123
+                                                    },
+                                                    "items": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "properties": {
+                                                                "productId": {
+                                                                    "type": "integer",
+                                                                    "example": 100
+                                                                },
+                                                                "quantity": {
+                                                                    "type": "integer",
+                                                                    "example": 2
+                                                                },
+                                                                "unitPrice": {
+                                                                    "type": "string",
+                                                                    "example": "10.50"
+                                                                },
+                                                                "total": {
+                                                                    "type": "string",
+                                                                    "example": "21.00"
+                                                                },
+                                                                "discountAmount": {
+                                                                    "type": "string",
+                                                                    "example": "2.00"
+                                                                },
+                                                                "discountedTotal": {
+                                                                    "type": "string",
+                                                                    "example": "19.00"
+                                                                }
+                                                            },
+                                                            "type": "object"
                                                         }
                                                     },
-                                                    "type": "object"
-                                                }
-                                            },
-                                            "total": {
-                                                "type": "number",
-                                                "format": "float",
-                                                "example": 250.5
-                                            },
-                                            "totalDiscount": {
-                                                "type": "number",
-                                                "format": "float",
-                                                "example": 0
-                                            },
-                                            "discountedTotal": {
-                                                "type": "number",
-                                                "format": "float",
-                                                "example": 0
+                                                    "total": {
+                                                        "type": "number",
+                                                        "format": "float",
+                                                        "example": 250.5
+                                                    },
+                                                    "totalDiscount": {
+                                                        "type": "number",
+                                                        "format": "float",
+                                                        "example": 0
+                                                    },
+                                                    "discountedTotal": {
+                                                        "type": "number",
+                                                        "format": "float",
+                                                        "example": 0
+                                                    }
+                                                },
+                                                "type": "object"
                                             }
-                                        },
-                                        "type": "object"
-                                    }
+                                        }
+                                    },
+                                    "type": "object"
                                 }
                             }
                         }
@@ -850,14 +924,50 @@
                     "Product"
                 ],
                 "summary": "Get all products",
-                "description": "Fetches a list of all products.",
+                "description": "Fetches a list of all products with pagination.",
                 "operationId": "getAllProducts",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page number",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Number of items per page",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 10
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "List of products",
                         "content": {
                             "application/json": {
                                 "schema": {
+                                    "properties": {
+                                        "total": {
+                                            "type": "integer",
+                                            "example": 100
+                                        },
+                                        "per_page": {
+                                            "type": "integer",
+                                            "example": 10
+                                        },
+                                        "last_page": {
+                                            "type": "integer",
+                                            "example": 10
+                                        }
+                                    },
                                     "type": "array",
                                     "items": {
                                         "properties": {

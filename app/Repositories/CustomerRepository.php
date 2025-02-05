@@ -2,10 +2,14 @@
 
 namespace App\Repositories;
 
+use App\Interfaces\CreateInterface;
+use App\Interfaces\DeleteInterface;
+use App\Interfaces\FindInterface;
+use App\Interfaces\GetAllInterface;
 use App\Models\Customer;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 
-class CustomerRepository
+class CustomerRepository implements CreateInterface, DeleteInterface,FindInterface,GetAllInterface
 {
     /**
      * @param int $id
@@ -17,12 +21,15 @@ class CustomerRepository
     }
 
     /**
-     * @return Collection
+     * @param int $page
+     * @param int $perPage
+     * @return LengthAwarePaginator
      */
-    public function getCustomers():Collection
+    public function getAll(int $page, int $perPage): LengthAwarePaginator
     {
-        return Customer::all();
+        return Customer::paginate($perPage, ['*'], 'page', $page);
     }
+
 
     /**
      * @param array $data
@@ -41,12 +48,6 @@ class CustomerRepository
     {
         $customer = Customer::find($id);
 
-        if (!$customer) {
-            return false;
-        }
-
-        $customer->delete();
-
-        return true;
+        return $customer->delete();
     }
 }

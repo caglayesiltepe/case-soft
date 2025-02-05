@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\UserService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 
@@ -78,14 +79,20 @@ class AuthController extends Controller
         if (!$request->isMethod('post')) {
             return response()->json(['error' => 'Method Not Allowed'], 405);
         }
+
+        DB::beginTransaction();
         try {
             $user = $this->userService->createUser($request->validated());
+
+            DB::commit();
 
             return response()->json([
                 'message' => "Kullanıcı başarıyla oluşturuldu.",
                 'user' => $user,
             ], 201);
         } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('User creation failed', ['error' => $e->getMessage()]);
             return response()->json(['error' => 'User register failed', 'message' => $e->getMessage()], 422);
         }
 

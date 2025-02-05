@@ -2,9 +2,10 @@
 
 namespace App\Repositories;
 
+use App\Interfaces\CreateInterface;
 use App\Models\OrderItem;
 
-class OrderItemRepository
+class OrderItemRepository implements CreateInterface
 {
     /**
      * @param array $data
