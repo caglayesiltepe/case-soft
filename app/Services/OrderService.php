@@ -69,7 +69,7 @@ class OrderService
                 'customer_id' => $customerId,
                 'items' => $items
             ]);
-            throw new Exception("Sipariş oluşturulamadı" . $e->getMessage());
+            throw new Exception("Sipariş oluşturulamadı. " . $e->getMessage());
         }
     }
 
