@@ -25,21 +25,24 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 
-Route::post('register', [AuthController::class, 'register']);
+
 Route::post('login', [AuthController::class, 'login']);
 
-Route::middleware('auth:sanctum')->post('logout', [AuthController::class, 'logout']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('logout', [AuthController::class, 'logout']);
+    Route::post('register', [AuthController::class, 'register']);
 
-Route::middleware('auth:sanctum')->post('order', [OrderController::class, 'store']);
-Route::middleware('auth:sanctum')->get('order', [OrderController::class, 'index']);
-Route::middleware('auth:sanctum')->delete('order/{id}', [OrderController::class, 'destroy'])->whereNumber('id');
+    Route::post('order', [OrderController::class, 'store']);
+    Route::get('order', [OrderController::class, 'index']);
+    Route::delete('order/{id}', [OrderController::class, 'destroy'])->whereNumber('id');
 
-Route::middleware('auth:sanctum')->get('customer', [CustomerController::class, 'index']);
-Route::middleware('auth:sanctum')->post('customer', [CustomerController::class, 'store']);
-Route::middleware('auth:sanctum')->delete('customer/{id}', [CustomerController::class, 'destroy'])->whereNumber('id');
+    Route::get('customer', [CustomerController::class, 'index']);
+    Route::post('customer', [CustomerController::class, 'store']);
+    Route::delete('customer/{id}', [CustomerController::class, 'destroy'])->whereNumber('id');
 
-Route::middleware('auth:sanctum')->get('product', [ProductController::class, 'index']);
-Route::middleware('auth:sanctum')->post('product', [ProductController::class, 'store']);
-Route::middleware('auth:sanctum')->delete('product/{id}', [ProductController::class, 'destroy'])->whereNumber('id');
+    Route::get('product', [ProductController::class, 'index']);
+    Route::post('product', [ProductController::class, 'store']);
+    Route::delete('product/{id}', [ProductController::class, 'destroy'])->whereNumber('id');
 
-Route::middleware('auth:sanctum')->get('discounted/{id}', [DiscountController::class, 'show'])->whereNumber('id');
+    Route::get('discounted/{id}', [DiscountController::class, 'show'])->whereNumber('id');
+});
