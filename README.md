@@ -15,7 +15,7 @@ Bu proje, Laravel Sanctum kullanarak geliştirilmiş bir RESTful API'dir. API, k
 
 Projenizi başlatmak için aşağıdaki adımları izleyin.
 
-# Dış Kaynaklar (External Libraries)
+## Dış Kaynaklar (External Libraries)
 - **Laravel**: PHP framework (https://laravel.com)
 - **Sanctum**: Laravel için basit API token tabanlı kimlik doğrulama (https://laravel.com/docs/9.x/sanctum)
 - **Swagger/OpenAPI**: API dokümantasyonu ve test aracı (https://swagger.io/)
